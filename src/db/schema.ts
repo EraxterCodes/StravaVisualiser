@@ -39,3 +39,17 @@ export const stravaCredentials = pgTable("strava_credentials", {
     .notNull()
     .defaultNow(),
 });
+
+/** Per-person invite links (owner-generated, individually revocable) that
+ * gate access to the otherwise-public dashboard, since per-activity GPS
+ * routes reveal the owner's home address. */
+export const invites = pgTable("invites", {
+  id: serial("id").primaryKey(),
+  token: text("token").notNull().unique(),
+  label: text("label").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+});
