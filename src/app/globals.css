@@ -1,26 +1,146 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
+/*
+ * Strava Visualiser design tokens.
+ * Dark-first "athletic data dashboard" aesthetic — this site is always dark,
+ * matching the training-log/analytics tone of the product (Strava, Vercel,
+ * Linear, GitHub-in-dark-mode all lean this way). Values below are the dark
+ * column of the validated dataviz-skill reference palette.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0d0d0d;
+  --foreground: #ffffff;
+
+  --surface: #1a1a19;
+  --surface-raised: #202020;
+  --text-primary: #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted: #898781;
+  --gridline: #2c2c2a;
+  --baseline: #383835;
+  --border: rgba(255, 255, 255, 0.1);
+  --success: #0ca30c;
+
+  /* Fixed-order categorical slots — never reassigned per-render. */
+  --series-blue: #3987e5;
+  --series-orange: #d95926;
+  --series-aqua: #199e70;
+  --series-yellow: #c98500;
+  --series-magenta: #d55181;
+  --series-green: #008300;
+  --series-violet: #9085e9;
+  --series-red: #e66767;
+
+  /* Sequential (blue) ramp for the heatmap, stepped to recede toward the
+     dark surface at the low end rather than toward white. */
+  --seq-0: #1f1f1e;
+  --seq-1: #16324f;
+  --seq-2: #1c5cab;
+  --seq-3: #256abf;
+  --seq-4: #2a78d6;
+  --seq-5: #3987e5;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-gridline: var(--gridline);
+  --color-baseline: var(--baseline);
+  --color-series-blue: var(--series-blue);
+  --color-series-orange: var(--series-orange);
+  --color-series-aqua: var(--series-aqua);
+  --color-series-yellow: var(--series-yellow);
+  --color-series-magenta: var(--series-magenta);
+  --color-series-green: var(--series-green);
+  --color-series-violet: var(--series-violet);
+  --color-series-red: var(--series-red);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: dark;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ---------------------------------------------------------------------- */
+/* react-calendar-heatmap overrides — restyled to the dashboard's dark,   */
+/* sequential-blue theme instead of the library's default green scale.   */
+/* ---------------------------------------------------------------------- */
+.heatmap .react-calendar-heatmap {
+  width: 100%;
+  height: auto;
+}
+
+.heatmap .react-calendar-heatmap text {
+  fill: var(--text-muted);
+  font-size: 9px;
+}
+
+.heatmap .react-calendar-heatmap rect {
+  rx: 2;
+  stroke: var(--background);
+  stroke-width: 2px;
+}
+
+.heatmap .react-calendar-heatmap .color-empty {
+  fill: var(--seq-0);
+}
+
+.heatmap .react-calendar-heatmap .color-scale-1 {
+  fill: var(--seq-1);
+}
+
+.heatmap .react-calendar-heatmap .color-scale-2 {
+  fill: var(--seq-2);
+}
+
+.heatmap .react-calendar-heatmap .color-scale-3 {
+  fill: var(--seq-3);
+}
+
+.heatmap .react-calendar-heatmap .color-scale-4 {
+  fill: var(--seq-4);
+}
+
+.heatmap .react-calendar-heatmap .color-scale-5 {
+  fill: var(--seq-5);
+}
+
+.heatmap .react-calendar-heatmap rect:hover {
+  stroke: var(--text-secondary);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Leaflet chrome — dark-tinted controls/popups to match the shell        */
+/* (tiles themselves stay the standard OSM raster, per OSM tile policy).  */
+/* ---------------------------------------------------------------------- */
+.leaflet-container {
+  background: var(--surface);
+  font-family: inherit;
+}
+
+.leaflet-control-attribution {
+  background: rgba(13, 13, 13, 0.7) !important;
+  color: var(--text-muted) !important;
+}
+
+.leaflet-control-attribution a {
+  color: var(--text-secondary) !important;
+}
+
+.leaflet-control-zoom a {
+  background: var(--surface-raised) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border) !important;
 }
