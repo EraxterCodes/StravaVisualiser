@@ -4,10 +4,10 @@
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent (code complete; live verification blocked on owner-supplied Strava API credentials — see Comments)
+**Status:** done
 
 - [x] A protected route (gated by the shared secret) initiates the Strava OAuth Authorization Code flow — `GET /api/strava/authorize?secret=<SYNC_SECRET>`
-- [ ] Completing the flow exchanges the authorization code for an access token and refresh token — `GET /api/strava/callback` is implemented and verified against a faked Strava client (route test), but not yet exercised against the real Strava API — blocked, see Comments
+- [x] Completing the flow exchanges the authorization code for an access token and refresh token — live-verified 2026-08-02: owner registered a Strava API app (client id `269390`), visited the authorize link, and the callback exchanged the code and returned "Strava account connected successfully"
 - [x] The resulting token and expiry are persisted to the `strava_credentials` table (single row; re-running the flow upserts it) — verified with a real test-database round trip
 - [x] Hitting the route without the correct shared secret is rejected — verified (missing secret and wrong secret both 401)
 
@@ -52,14 +52,11 @@ as the test runner (`npm run test`, wired through `dotenv-cli` to load `.env.loc
 like the other `db:*` scripts); `vitest.config.mts` sets `fileParallelism: false`
 because these tests hit one shared real database.
 
-**Blocked.** Strava requires a human to register an API application at
-https://www.strava.com/settings/api (I can't do this — it needs the owner's Strava
-login) and to click through the consent screen at `/api/strava/authorize` (also
-requires the owner's Strava login). Both are pending `STRAVA_CLIENT_ID`/
-`STRAVA_CLIENT_SECRET` and an Authorization Callback Domain from the owner — see the
-final report for what's needed. Once supplied, `.env.local` needs
-`STRAVA_CLIENT_ID`/`STRAVA_CLIENT_SECRET` filled in, the same two need adding as
-Vercel production env vars, and the owner needs to visit
-`/api/strava/authorize?secret=<SYNC_SECRET>` once (locally or in prod) to complete
-the real handshake — at which point this ticket's remaining checkbox can be verified
-and Status flipped to `done`.
+**Resolved.** The owner registered a Strava API app, gave the client id/secret, and
+completed the consent flow against the production deployment. `strava_credentials`
+in the production DB now holds one real row (`athlete_id: 135858327`). One hiccup
+along the way, unrelated to this ticket's code: the schema had only ever been pushed
+to the Neon **dev** branch (ticket 01), not **production**, so the first callback
+attempt 500'd with `relation "strava_credentials" does not exist` — fixed by running
+`drizzle-kit push` against the production connection string. Worth remembering for
+any future schema change: push to both branches, not just dev.

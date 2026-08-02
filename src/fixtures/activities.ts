@@ -1,18 +1,16 @@
-import type { ActivitySummary, SportType } from "@/types/api";
+import type { SportType } from "@/types/api";
+import type { StatsActivity } from "@/types/activity";
 
-export interface FixtureActivity extends ActivitySummary {
-  totalElevationGainMeters: number;
-  calories: number;
-  /** Only populated for a couple of fixture activities, to exercise the route endpoint */
-  coordinates?: [number, number][];
-}
+export type FixtureActivity = StatsActivity;
 
 function pace(distanceMeters: number, movingTimeSeconds: number): number {
   return movingTimeSeconds / (distanceMeters / 1000);
 }
 
 const raw: Array<
-  Omit<FixtureActivity, "averagePaceSecondsPerKm"> & { movingTimeSeconds: number }
+  Omit<FixtureActivity, "averagePaceSecondsPerKm" | "startDateTime"> & {
+    movingTimeSeconds: number;
+  }
 > = [
   { id: "1", name: "Morning River Loop", sportType: "Run", date: "2026-08-02", distanceMeters: 8200, movingTimeSeconds: 2460, totalElevationGainMeters: 65, calories: 520,
     coordinates: [
@@ -56,6 +54,7 @@ const raw: Array<
 export const FIXTURE_ACTIVITIES: FixtureActivity[] = raw.map((a) => ({
   ...a,
   averagePaceSecondsPerKm: pace(a.distanceMeters, a.movingTimeSeconds),
+  startDateTime: `${a.date}T08:00:00.000Z`,
 }));
 
 export function fixtureActivitiesBySportType(): Partial<Record<SportType, number>> {

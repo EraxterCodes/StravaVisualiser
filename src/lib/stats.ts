@@ -5,7 +5,7 @@ import type {
   TrendPoint,
   TrendsResponse,
 } from "@/types/api";
-import type { FixtureActivity } from "@/fixtures/activities";
+import type { StatsActivity } from "@/types/activity";
 import { isWithinRange } from "@/lib/time-range";
 
 const EARTH_CIRCUMFERENCE_METERS = 40_075_000;
@@ -22,13 +22,13 @@ const DAY_NAMES = [
 ] as const;
 
 export function filterActivitiesByRange(
-  activities: FixtureActivity[],
+  activities: StatsActivity[],
   range: TimeRangePreset,
-): FixtureActivity[] {
+): StatsActivity[] {
   return activities.filter((a) => isWithinRange(a.date, range));
 }
 
-function longestStreakDays(activities: FixtureActivity[]): number {
+function longestStreakDays(activities: StatsActivity[]): number {
   const uniqueDays = Array.from(new Set(activities.map((a) => a.date))).sort();
   if (uniqueDays.length === 0) return 0;
 
@@ -47,7 +47,7 @@ function longestStreakDays(activities: FixtureActivity[]): number {
 }
 
 function mostActiveDayOfWeek(
-  activities: FixtureActivity[],
+  activities: StatsActivity[],
 ): StatsResponse["mostActiveDayOfWeek"] {
   const counts = new Array(7).fill(0);
   for (const a of activities) {
@@ -57,8 +57,49 @@ function mostActiveDayOfWeek(
   return DAY_NAMES[maxIndex] as StatsResponse["mostActiveDayOfWeek"];
 }
 
+const TIME_OF_DAY_BUCKETS: StatsResponse["mostActiveTimeOfDay"][] = [
+  "Early Morning",
+  "Morning",
+  "Afternoon",
+  "Evening",
+  "Night",
+];
+
+/** Buckets a UTC hour into a time-of-day label. Activity timestamps are only
+ * stored in UTC (Strava's `start_date`, not `start_date_local`), so this is a
+ * UTC-based approximation rather than the athlete's true local time of day. */
+function timeOfDayBucket(hourUtc: number): StatsResponse["mostActiveTimeOfDay"] {
+  if (hourUtc < 6) return "Night";
+  if (hourUtc < 9) return "Early Morning";
+  if (hourUtc < 12) return "Morning";
+  if (hourUtc < 17) return "Afternoon";
+  if (hourUtc < 21) return "Evening";
+  return "Night";
+}
+
+function mostActiveTimeOfDay(
+  activities: StatsActivity[],
+): StatsResponse["mostActiveTimeOfDay"] {
+  const counts = new Map<StatsResponse["mostActiveTimeOfDay"], number>();
+  for (const a of activities) {
+    const bucket = timeOfDayBucket(new Date(a.startDateTime).getUTCHours());
+    counts.set(bucket, (counts.get(bucket) ?? 0) + 1);
+  }
+
+  let best: StatsResponse["mostActiveTimeOfDay"] = "Morning";
+  let bestCount = -1;
+  for (const bucket of TIME_OF_DAY_BUCKETS) {
+    const count = counts.get(bucket) ?? 0;
+    if (count > bestCount) {
+      best = bucket;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
 export function computeStats(
-  activities: FixtureActivity[],
+  activities: StatsActivity[],
   range: TimeRangePreset,
 ): StatsResponse {
   const totalDistanceMeters = activities.reduce((sum, a) => sum + a.distanceMeters, 0);
@@ -72,7 +113,7 @@ export function computeStats(
   );
   const totalCalories = activities.reduce((sum, a) => sum + a.calories, 0);
 
-  const longestActivity = activities.reduce<FixtureActivity | null>((longest, a) => {
+  const longestActivity = activities.reduce<StatsActivity | null>((longest, a) => {
     if (!longest || a.distanceMeters > longest.distanceMeters) return a;
     return longest;
   }, null);
@@ -104,12 +145,12 @@ export function computeStats(
       : null,
     longestStreakDays: longestStreakDays(activities),
     mostActiveDayOfWeek: mostActiveDayOfWeek(activities),
-    mostActiveTimeOfDay: "Morning",
+    mostActiveTimeOfDay: mostActiveTimeOfDay(activities),
     activityCountBySportType,
   };
 }
 
-export function computeHeatmap(activities: FixtureActivity[]): HeatmapResponse {
+export function computeHeatmap(activities: StatsActivity[]): HeatmapResponse {
   const byDate = new Map<string, number>();
   for (const a of activities) {
     byDate.set(a.date, (byDate.get(a.date) ?? 0) + a.distanceMeters);
@@ -120,7 +161,7 @@ export function computeHeatmap(activities: FixtureActivity[]): HeatmapResponse {
 }
 
 export function computeTrends(
-  activities: FixtureActivity[],
+  activities: StatsActivity[],
   range: TimeRangePreset,
 ): TrendsResponse {
   const bucketByWeek = range === "last-30-days" || range === "this-month";

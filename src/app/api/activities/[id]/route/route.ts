@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { FIXTURE_ACTIVITIES } from "@/fixtures/activities";
+import { getActivityRouteById } from "@/lib/strava/query";
 import type { ActivityRouteResponse } from "@/types/api";
 
 export async function GET(
@@ -7,15 +7,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const activity = FIXTURE_ACTIVITIES.find((a) => a.id === id);
+  const coordinates = await getActivityRouteById(id);
 
-  if (!activity) {
+  if (coordinates === null) {
     return NextResponse.json({ error: "Activity not found" }, { status: 404 });
   }
 
-  const body: ActivityRouteResponse = {
-    id: activity.id,
-    coordinates: activity.coordinates ?? [],
-  };
+  const body: ActivityRouteResponse = { id, coordinates };
   return NextResponse.json(body);
 }

@@ -4,12 +4,12 @@
 
 **Blocked by:** 04
 
-**Status:** ready-for-agent (workflow complete; full live confirmation blocked on this branch reaching production — see Comments)
+**Status:** done
 
 - [x] A GitHub Actions workflow is scheduled to run hourly (cron trigger) — `.github/workflows/hourly-sync.yml`, `cron: "0 * * * *"`
 - [x] The workflow calls the deployed sync endpoint, authenticating with the shared secret stored as a GitHub Actions secret — `POST ${SITE_URL}/api/sync` with `Authorization: Bearer ${{ secrets.SYNC_SECRET }}`; `SYNC_SECRET` set via `gh secret set` (confirmed present via `gh secret list`)
 - [x] The workflow also supports manual triggering via `workflow_dispatch`, for verification
-- [ ] A manual run successfully triggers a sync against the deployed app, confirmed by updated data or workflow logs — blocked, see Comments
+- [x] A manual run successfully triggers a sync against the deployed app, confirmed by updated data or workflow logs — live-verified 2026-08-02 after merging to `master`: `gh workflow run "Hourly Strava Sync"` → run `30762414674` → `conclusion: success` (https://github.com/EraxterCodes/StravaVisualiser/actions/runs/30762414674)
 
 ## Comments
 
@@ -40,15 +40,8 @@ preview build failed — `DATABASE_URL`/`SYNC_SECRET` are only configured for th
 Preview env vars to unblock this was flagged and denied by this session's safety
 classifier, so I didn't push on it further.
 
-What **is** verified: the workflow YAML is valid, correctly scoped, and reads the
-secret from the right place (`npm run build`/`tsc`/lint all pass on the branch that
-contains it; the route it targets, `/api/sync`, is fully covered by
-`src/app/api/sync/route.test.ts`, see ticket 04). What's *not* verified from within
-this session is the workflow actually firing end-to-end against a live deployment —
-that needs `backend` merged to `master` (explicitly out of scope for me) so both (a)
-the workflow file lands on the default branch and becomes dispatchable/schedulable,
-and (b) `/api/sync` exists on the production deployment the workflow targets. Once
-merged, a `workflow_dispatch` run (or waiting for the next hourly tick) will complete
-this checkbox — and will only do something meaningful once ticket 03's real Strava
-credentials are also in place, since until then `/api/sync` will correctly 500 with
-"No Strava credentials found."
+**Resolved.** Once `backend` was merged to `master` (bringing the workflow file to the
+default branch) and ticket 03's real credentials were in place, `gh workflow run`
+dispatched successfully and the job completed with `conclusion: success` — confirming
+both the platform-level unblock (workflow visible/dispatchable from `master`) and the
+route-level one (`/api/sync` returning 2xx against production with real credentials).
