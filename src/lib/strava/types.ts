@@ -47,6 +47,12 @@ export interface ListActivitiesParams {
   after?: number;
 }
 
+/** The per-activity detail endpoint's response — only the fields sync needs
+ * from it (currently just `calories`, which the list endpoint omits). */
+export interface StravaActivityDetail {
+  calories?: number | null;
+}
+
 /**
  * The Strava API surface the domain layer depends on. Both the sync logic and
  * the OAuth setup route depend on this interface, not the concrete HTTP
@@ -56,4 +62,7 @@ export interface StravaClient {
   exchangeAuthorizationCode(code: string): Promise<StravaTokenResponse>;
   refreshAccessToken(refreshToken: string): Promise<StravaTokenResponse>;
   listActivities(params: ListActivitiesParams): Promise<StravaActivity[]>;
+  /** Fetches a single activity's detail (used to backfill `calories`, which
+   * the list endpoint doesn't return). */
+  getActivityDetail(accessToken: string, id: number): Promise<StravaActivityDetail>;
 }

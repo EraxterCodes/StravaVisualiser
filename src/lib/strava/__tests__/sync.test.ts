@@ -33,9 +33,13 @@ function fakeActivity(offset: number, overrides: Partial<StravaActivity> = {}): 
 function fakeStravaClient(config: {
   activitiesByPage: StravaActivity[][];
   refreshedToken?: StravaTokenResponse;
+  /** Map from activity id to the calories the detail endpoint should return
+   * for it. Ids not present here cause getActivityDetail to throw. */
+  detailCalories?: Record<number, number>;
 }) {
   const refreshCalls: string[] = [];
   const listCalls: number[] = [];
+  const detailCalls: number[] = [];
   const client: StravaClient = {
     async exchangeAuthorizationCode() {
       throw new Error("not used in sync tests");
@@ -51,8 +55,16 @@ function fakeStravaClient(config: {
       listCalls.push(page);
       return config.activitiesByPage[page - 1] ?? [];
     },
+    async getActivityDetail(_accessToken: string, id: number) {
+      detailCalls.push(id);
+      const calories = config.detailCalories?.[id];
+      if (calories === undefined) {
+        throw new Error(`no fake detail configured for activity ${id}`);
+      }
+      return { calories };
+    },
   };
-  return { client, refreshCalls, listCalls };
+  return { client, refreshCalls, listCalls, detailCalls };
 }
 
 let credentialsSnapshot: (typeof stravaCredentials.$inferSelect)[];
@@ -169,5 +181,63 @@ describe("syncActivities", () => {
 
     const [credRow] = await db.select().from(stravaCredentials);
     expect(credRow.accessToken).toBe("fresh-token");
+  });
+
+  it("backfills calories via the detail endpoint when the list endpoint omits them", async () => {
+    await seedValidCredentials();
+    const id = Number(TEST_ID_FLOOR + BigInt(1));
+    const { client, detailCalls } = fakeStravaClient({
+      activitiesByPage: [[fakeActivity(1)]], // calories: null, per fakeActivity's default
+      detailCalories: { [id]: 555 },
+    });
+
+    await syncActivities({ db, stravaClient: client });
+
+    expect(detailCalls).toEqual([id]);
+    const rows = await db
+      .select()
+      .from(activities)
+      .where(gte(activities.stravaId, TEST_ID_FLOOR));
+    expect(rows[0].calories).toBe(555);
+  });
+
+  it("does not re-fetch detail for activities that already have calories stored", async () => {
+    await seedValidCredentials();
+    const id = Number(TEST_ID_FLOOR + BigInt(1));
+    const { client: firstClient } = fakeStravaClient({
+      activitiesByPage: [[fakeActivity(1)]],
+      detailCalories: { [id]: 555 },
+    });
+    await syncActivities({ db, stravaClient: firstClient });
+
+    const { client: secondClient, detailCalls } = fakeStravaClient({
+      activitiesByPage: [[fakeActivity(1, { name: "Renamed" })]], // still calories: null from Strava
+      detailCalories: {}, // getActivityDetail should not be called at all
+    });
+    await syncActivities({ db, stravaClient: secondClient });
+
+    expect(detailCalls).toEqual([]);
+    const rows = await db
+      .select()
+      .from(activities)
+      .where(gte(activities.stravaId, TEST_ID_FLOOR));
+    expect(rows[0].name).toBe("Renamed");
+    expect(rows[0].calories).toBe(555); // preserved, not overwritten with null
+  });
+
+  it("caps calorie backfills at MAX_CALORIE_BACKFILLS_PER_SYNC per run", async () => {
+    await seedValidCredentials();
+    const batch = Array.from({ length: 25 }, (_, i) => fakeActivity(i + 1));
+    const detailCalories = Object.fromEntries(
+      batch.map((a) => [a.id, 100]),
+    );
+    const { client, detailCalls } = fakeStravaClient({
+      activitiesByPage: [batch],
+      detailCalories,
+    });
+
+    await syncActivities({ db, stravaClient: client });
+
+    expect(detailCalls).toHaveLength(20);
   });
 });

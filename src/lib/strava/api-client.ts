@@ -1,12 +1,14 @@
 import type {
   ListActivitiesParams,
   StravaActivity,
+  StravaActivityDetail,
   StravaClient,
   StravaTokenResponse,
 } from "./types";
 
 const STRAVA_TOKEN_URL = "https://www.strava.com/oauth/token";
 const STRAVA_ACTIVITIES_URL = "https://www.strava.com/api/v3/athlete/activities";
+const STRAVA_ACTIVITY_URL = "https://www.strava.com/api/v3/activities";
 
 export interface StravaApiClientConfig {
   clientId: string;
@@ -67,6 +69,17 @@ export function createStravaApiClient(config: StravaApiClientConfig): StravaClie
         throw new Error(`Strava list activities failed (${res.status}): ${text}`);
       }
       return (await res.json()) as StravaActivity[];
+    },
+
+    async getActivityDetail(accessToken: string, id: number): Promise<StravaActivityDetail> {
+      const res = await fetch(`${STRAVA_ACTIVITY_URL}/${id}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`Strava activity detail request failed (${res.status}): ${text}`);
+      }
+      return (await res.json()) as StravaActivityDetail;
     },
   };
 }

@@ -66,6 +66,7 @@ describe("GET /api/strava/callback", () => {
       }),
       refreshAccessToken: vi.fn(),
       listActivities: vi.fn(),
+      getActivityDetail: vi.fn(),
     });
 
     const res = await GET(

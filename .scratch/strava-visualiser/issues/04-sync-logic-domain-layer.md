@@ -24,13 +24,20 @@ Returns `{ fetched, upserted }`. Throws a clear error if no credentials are stor
 expected — and now the actual, verified — failure mode until ticket 03's OAuth is
 completed live.
 
-**Known deviation from the schema's aspiration:** Strava's activity *list* endpoint
-(the one sync uses) doesn't return `calories` — that's only on the per-activity
-*detail* endpoint, which sync deliberately doesn't call per-activity (it would burn
-through the 200-req/15-min rate limit fast on any real history). `calories` is stored
-as `null` for every synced activity for now. The `calories` column is already
-nullable, so nothing else needs to change; if per-activity calorie backfill is wanted
-later, it'd be a separate, explicitly rate-limited job, not part of this sync path.
+**Calorie backfill (added post-launch, 2026-08-02):** the owner reported "Calories
+burned: 0 kcal" on the live dashboard — the deviation noted above (list endpoint
+omits `calories`) was real but shipped without a fix. Added a bounded backfill: for
+each synced activity still missing `calories`, `syncActivities` calls the per-activity
+*detail* endpoint (`StravaClient.getActivityDetail`), capped at
+`MAX_CALORIE_BACKFILLS_PER_SYNC = 20` per run, prioritizing Strava's newest-first list
+order. A pre-sync lookup (`getExistingCalories`) skips activities that already have a
+stored value, so the backfill drains a large backlog gradually (a few sync runs) while
+staying cheap forever after (new activities are 0-2/hour, well under the cap). A failed
+detail call (rate limit, transient error) is caught and left `null` for the next sync
+to retry, rather than failing the whole sync. Verified live: 5 manual sync runs fully
+backfilled all 92 activities (20/20/20/20/12), `totalCalories` went from `0` to
+`28884`. 3 new tests cover backfill-on-missing, skip-if-already-set, and the
+20-per-run cap (`src/lib/strava/__tests__/sync.test.ts`).
 
 **"Thin wrapper" decision:** the ticket allows a separate manual-trigger wrapper
 around the sync route, but there's no meaningful difference between "the hourly job

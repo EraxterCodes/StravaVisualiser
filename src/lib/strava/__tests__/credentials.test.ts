@@ -45,6 +45,9 @@ function fakeStravaClientWithRefresh(refreshedToken: StravaTokenResponse) {
     async listActivities() {
       throw new Error("not used in this test");
     },
+    async getActivityDetail() {
+      throw new Error("not used in this test");
+    },
   };
   return { client, calls };
 }
